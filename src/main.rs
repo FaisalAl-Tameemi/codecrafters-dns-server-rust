@@ -1,7 +1,10 @@
 #[allow(unused_imports)]
 use std::net::UdpSocket;
 
-use codecrafters_dns_server::dns::*;
+use codecrafters_dns_server::dns::{
+    header::*,
+    question::*,
+};
 
 fn main() {
     let udp_socket = UdpSocket::bind("127.0.0.1:2053").expect("Failed to bind to address");
@@ -10,10 +13,10 @@ fn main() {
     loop {
         match udp_socket.recv_from(&mut buf) {
             Ok((size, source)) => {
-                println!("Received {} bytes from {}", size, source);
+                println!("Received {} bytes from {}: {:?}", size, source, buf.clone());
                 let header = DnsHeader {
                     id: 1234,
-                    query_response: DnsHeaderQR::Response,
+                    query_response: DnsHeaderQR::Reply,
                     opcode: DnsHeaderOpcode::Query,
                     authoritative_answer: DnsHeaderAA::NonAuthoritative,
                     truncation: DnsHeaderTC::NotTruncated,
@@ -26,7 +29,26 @@ fn main() {
                     authority_count: 0,
                     additional_count: 0,
                 };
-                let response = header.response();
+
+                let question = DnsQuestion::new(
+                    "codecrafters.io",
+                    DnsQuestionType::A,
+                    DnsQuestionClass::IN,
+                );
+
+                let response = {
+                    let mut response: [u8; 512] = [0; 512];
+
+                    let header_buf = header.as_buf();
+                    response[..header_buf.len()].copy_from_slice(&header_buf);
+
+                    let question_buf = question.as_buf();
+                    response[header_buf.len()..header_buf.len() + question_buf.len()].copy_from_slice(&question_buf);
+
+                    response
+                };
+
+                println!("Sending response: {:?}", response);
 
                 udp_socket
                     .send_to(&response, source)
