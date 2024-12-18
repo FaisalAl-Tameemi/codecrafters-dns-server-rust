@@ -1,3 +1,5 @@
+use bytes::{BufMut, BytesMut};
+
 
 // QR - Query/Response
 #[derive(Copy, Clone)]
@@ -87,41 +89,36 @@ pub struct DnsHeader {
 }
 
 impl DnsHeader {
-    pub fn as_buf(&self) -> [u8; 12] {
-        let mut buffer = [0u8; 12];
+    pub fn as_buf(&self) -> BytesMut {
+        let mut buf = BytesMut::with_capacity(12);
 
         // First 2 bytes: ID (16 bits)
-        buffer[0] = (self.id >> 8) as u8;
-        buffer[1] = self.id as u8;
-
-        // Byte 2: QR (1 bit) | OPCODE (4 bits) | AA (1 bit) | TC (1 bit) | RD (1 bit)
-        buffer[2] = (self.query_response as u8) << 7 |
-                    (self.opcode as u8) << 3 |
-                    (self.authoritative_answer as u8) << 2 |
-                    (self.truncation as u8) << 1 |
-                    (self.recursion_desired as u8);
-
-        // Byte 3: RA (1 bit) | Z (3 bits) | RCODE (4 bits)
-        buffer[3] = (self.recursion_available as u8) << 7 |
-                    (self.z as u8) << 4 |
-                    (self.rcode as u8);
-
+        buf.put_u16(self.id);
+        // // Byte 2: QR (1 bit) | OPCODE (4 bits) | AA (1 bit) | TC (1 bit) | RD (1 bit)
+        // buf.put_u8(
+        //     (self.query_response as u8) << 7 |
+        //     (self.opcode as u8) << 3 |
+        //     (self.authoritative_answer as u8) << 2 |
+        //     (self.truncation as u8) << 1 |
+        //     (self.recursion_desired as u8)
+        // );
+        // // Byte 3: RA (1 bit) | Z (3 bits) | RCODE (4 bits)
+        // buf.put_u8(
+        //     (self.recursion_available as u8) << 7 |
+        //     (self.z as u8) << 4 |
+        //     (self.rcode as u8)
+        // );
+        buf.put_u8(0b1000_0000); // QR Indicator, OPCODE, AA, TC, RD
+        buf.put_u8(0b0000_0000); // RA, Z, RCODE
         // Bytes 4-5: QDCOUNT (16 bits)
-        buffer[4] = (self.question_count >> 8) as u8;
-        buffer[5] = self.question_count as u8;
-
+        buf.put_u16(self.question_count);
         // Bytes 6-7: ANCOUNT (16 bits)
-        buffer[6] = (self.answer_count >> 8) as u8;
-        buffer[7] = self.answer_count as u8;
-
+        buf.put_u16(self.answer_count);
         // Bytes 8-9: NSCOUNT (16 bits)
-        buffer[8] = (self.authority_count >> 8) as u8;
-        buffer[9] = self.authority_count as u8;
-
+        buf.put_u16(self.authority_count);
         // Bytes 10-11: ARCOUNT (16 bits)
-        buffer[10] = (self.additional_count >> 8) as u8;
-        buffer[11] = self.additional_count as u8;
+        buf.put_u16(self.additional_count);
 
-        buffer
+        buf
     }
 }

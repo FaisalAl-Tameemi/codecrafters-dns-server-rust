@@ -1,9 +1,9 @@
 #[allow(unused_imports)]
 use std::net::UdpSocket;
 
+use bytes::{BufMut, BytesMut};
 use codecrafters_dns_server::dns::{
-    header::*,
-    question::*,
+    answer::*, common::*, header::*, message::DnsMessage, question::*
 };
 
 fn main() {
@@ -14,6 +14,10 @@ fn main() {
         match udp_socket.recv_from(&mut buf) {
             Ok((size, source)) => {
                 println!("Received {} bytes from {}: {:?}", size, source, buf.clone());
+
+                let received_message = DnsMessage::from(buf);
+                println!("Received message: {}", received_message);
+
                 let header = DnsHeader {
                     id: 1234,
                     query_response: DnsHeaderQR::Reply,
@@ -25,30 +29,41 @@ fn main() {
                     z: DnsHeaderZ::Reserved,
                     rcode: DnsHeaderRcode::NoError,
                     question_count: 1,
-                    answer_count: 0,
+                    answer_count: 1,
                     authority_count: 0,
                     additional_count: 0,
                 };
 
                 let question = DnsQuestion::new(
                     "codecrafters.io",
-                    DnsQuestionType::A,
-                    DnsQuestionClass::IN,
+                    DnsType::A,
+                    DnsClass::IN,
+                );
+
+                let answer = DnsAnswer::new(
+                    "codecrafters.io",
+                    DnsType::A,
+                    DnsClass::IN,
+                    60,
+                    vec![8, 8, 8, 8],
                 );
 
                 let response = {
-                    let mut response: [u8; 512] = [0; 512];
+                    let mut response: BytesMut = BytesMut::with_capacity(512);
 
                     let header_buf = header.as_buf();
-                    response[..header_buf.len()].copy_from_slice(&header_buf);
+                    response.extend(header_buf);
 
                     let question_buf = question.as_buf();
-                    response[header_buf.len()..header_buf.len() + question_buf.len()].copy_from_slice(&question_buf);
+                    response.extend(question_buf);
+
+                    let answer_buf = answer.as_buf();
+                    response.extend(answer_buf);
 
                     response
                 };
 
-                println!("Sending response: {:?}", response);
+                println!("Response: {:?}", response);
 
                 udp_socket
                     .send_to(&response, source)
