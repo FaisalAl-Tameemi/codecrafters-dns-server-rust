@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use std::net::UdpSocket;
 
-use bytes::{BufMut, BytesMut};
+use bytes::BytesMut;
 use codecrafters_dns_server::dns::{
     answer::*, common::*, header::*, message::DnsMessage, question::*
 };
@@ -14,20 +14,21 @@ fn main() {
         match udp_socket.recv_from(&mut buf) {
             Ok((size, source)) => {
                 println!("Received {} bytes from {}: {:?}", size, source, buf.clone());
-
                 let received_message = DnsMessage::from(buf);
-                println!("Received message: {}", received_message);
 
                 let header = DnsHeader {
-                    id: 1234,
+                    id: received_message.header.id,
                     query_response: DnsHeaderQR::Reply,
-                    opcode: DnsHeaderOpcode::Query,
+                    opcode: received_message.header.opcode,
                     authoritative_answer: DnsHeaderAA::NonAuthoritative,
                     truncation: DnsHeaderTC::NotTruncated,
-                    recursion_desired: DnsHeaderRD::RecursionDesired,
+                    recursion_desired: received_message.header.recursion_desired,
                     recursion_available: DnsHeaderRA::RecursionAvailable,
                     z: DnsHeaderZ::Reserved,
-                    rcode: DnsHeaderRcode::NoError,
+                    rcode: match received_message.header.opcode {
+                        DnsHeaderOpcode::Query => DnsHeaderRcode::NoError,
+                        _ => DnsHeaderRcode::NotImplemented,
+                    },
                     question_count: 1,
                     answer_count: 1,
                     authority_count: 0,
@@ -62,8 +63,6 @@ fn main() {
 
                     response
                 };
-
-                println!("Response: {:?}", response);
 
                 udp_socket
                     .send_to(&response, source)

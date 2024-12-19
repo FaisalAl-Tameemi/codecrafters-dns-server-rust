@@ -7,15 +7,21 @@ use super::{
 };
 
 pub struct DnsMessage {
-    header: DnsHeader,
-    questions: Vec<DnsQuestion>,
-    answers: Vec<DnsAnswer>,
-    authorities: Vec<DnsAuthority>,
-    additional: Vec<DnsAdditional>,
+    pub header: DnsHeader,
+    pub questions: Vec<DnsQuestion>,
+    pub answers: Vec<DnsAnswer>,
+    pub authorities: Vec<DnsAuthority>,
+    pub additional: Vec<DnsAdditional>,
 }
 
-impl DnsMessage {
-    pub fn from(data: [u8; 512]) -> u16 {
-        u16::from_be_bytes([data[0], data[1]])
+impl From<[u8; 512]> for DnsMessage {
+    fn from(data: [u8; 512]) -> Self {
+        Self {
+            header: DnsHeader::from(&data[0..12]),
+            questions: Vec::new(),
+            answers: Vec::new(),
+            authorities: Vec::new(),
+            additional: Vec::new(),
+        }
     }
 }
