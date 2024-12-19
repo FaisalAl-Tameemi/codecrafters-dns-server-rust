@@ -36,12 +36,3 @@ impl DnsName {
         buf
     }
 }
-
-pub fn get_bits_value(data: u8, positions: &[usize]) -> u8 {
-    let bits = (0..8).rev().map(|n: u8| (data >> n) & 1).collect::<Vec<_>>();
-    let mut result = 0;
-    for (i, &pos) in positions.iter().enumerate() {
-        result |= (bits[pos] << (positions.len() - 1 - i)) as u8;
-    }
-    result
-}

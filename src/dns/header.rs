@@ -1,9 +1,9 @@
+extern crate bit;
+use bit::BitIndex;
 use bytes::{BufMut, BytesMut};
 
-use super::common::get_bits_value;
-
 // QR - Query/Response
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderQR {
     Question = 0,
     Reply = 1,
@@ -11,38 +11,38 @@ pub enum DnsHeaderQR {
 
 impl From<u8> for DnsHeaderQR {
     fn from(data: u8) -> Self {
-        match get_bits_value(data, &[7]) {
-            0 => DnsHeaderQR::Question,
-            _ => DnsHeaderQR::Reply,
+        match data.bit(7) {
+            false => DnsHeaderQR::Question,
+            true => DnsHeaderQR::Reply,
         }
     }
 }
 
 // OPCODE - Operation Code
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderOpcode {
     Query = 0,
     IQuery = 1,
     Status = 2,
-    Notify = 4,
-    Update = 5,
+    Notify = 3,
+    Update = 4,
 }
 
 impl From<u8> for DnsHeaderOpcode {
     fn from(data: u8) -> Self {
-        match get_bits_value(data, &[6, 5, 4, 3]) {
+        match data.bit_range(3..6) {
             0 => DnsHeaderOpcode::Query,
             1 => DnsHeaderOpcode::IQuery,
             2 => DnsHeaderOpcode::Status,
-            4 => DnsHeaderOpcode::Notify,
-            5 => DnsHeaderOpcode::Update,
-            _ => panic!("Invalid OPCODE value"),
+            3 => DnsHeaderOpcode::Notify,
+            4 => DnsHeaderOpcode::Update,
+            value => panic!("Invalid OPCODE value: {}", value),
         }
     }
 }
 
 // AA - Authoritative Answer
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderAA {
     NonAuthoritative = 0,
     Authoritative = 1,
@@ -50,16 +50,15 @@ pub enum DnsHeaderAA {
 
 impl From<u8> for DnsHeaderAA {
     fn from(data: u8) -> Self {
-        match get_bits_value(data, &[2]) {
-            0 => DnsHeaderAA::NonAuthoritative,
-            1 => DnsHeaderAA::Authoritative,
-            _ => panic!("Invalid AA value"),
+        match data.bit(2) {
+            false => DnsHeaderAA::NonAuthoritative,
+            true => DnsHeaderAA::Authoritative,
         }
     }
 }
 
 // TC - Truncated
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderTC {
     NotTruncated = 0,
     Truncated = 1,
@@ -67,16 +66,15 @@ pub enum DnsHeaderTC {
 
 impl From<u8> for DnsHeaderTC {
     fn from(data: u8) -> Self {
-        match get_bits_value(data, &[1]) {
-            0 => DnsHeaderTC::NotTruncated,
-            1 => DnsHeaderTC::Truncated,
-            _ => panic!("Invalid TC value"),
+        match data.bit(1) {
+            false => DnsHeaderTC::NotTruncated,
+            true => DnsHeaderTC::Truncated,
         }
     }
 }
 
 // RD - Recursion Desired
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderRD {
     RecursionNotDesired = 0,
     RecursionDesired = 1,
@@ -84,42 +82,38 @@ pub enum DnsHeaderRD {
 
 impl From<u8> for DnsHeaderRD {
     fn from(data: u8) -> Self {
-        println!("RD: {:?}", get_bits_value(data, &[0]));
-
-        match get_bits_value(data, &[0]) {
-            0 => DnsHeaderRD::RecursionNotDesired,
-            1 => DnsHeaderRD::RecursionDesired,
-            _ => panic!("Invalid RD value"),
+        match data.bit(0) {
+            false => DnsHeaderRD::RecursionNotDesired,
+            true => DnsHeaderRD::RecursionDesired,
         }
     }
 }
 
 // RA - Recursion Available
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderRA {
-    RecursionAvailable = 0,
-    RecursionNotAvailable = 1,
+    RecursionNotAvailable = 0,
+    RecursionAvailable = 1,
 }
 
 impl From<u8> for DnsHeaderRA {
     fn from(data: u8) -> Self {
-        match get_bits_value(data, &[7]) {
-            0 => DnsHeaderRA::RecursionAvailable,
-            1 => DnsHeaderRA::RecursionNotAvailable,
-            _ => panic!("Invalid RA value"),
+        match data.bit(7) {
+            false => DnsHeaderRA::RecursionNotAvailable,
+            true => DnsHeaderRA::RecursionAvailable,
         }
     }
 }
 
 // Z - Reserved
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderZ {
     Reserved = 0,
 }
 
 impl From<u8> for DnsHeaderZ {
     fn from(data: u8) -> Self {
-        match get_bits_value(data, &[6, 5, 4]) {
+        match data.bit_range(4..6) {
             0 => DnsHeaderZ::Reserved,
             value => panic!("Invalid Z value: {}", value),
         }
@@ -127,7 +121,7 @@ impl From<u8> for DnsHeaderZ {
 }
 
 // RCODE - Response Code
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DnsHeaderRcode {
     NoError = 0,
     FormatError = 1,
@@ -139,20 +133,20 @@ pub enum DnsHeaderRcode {
 
 impl From<u8> for DnsHeaderRcode {
     fn from(data: u8) -> Self {
-        match get_bits_value(data, &[3, 2, 1, 0]) {
+        match data.bit_range(0..3) {
             0 => DnsHeaderRcode::NoError,
             1 => DnsHeaderRcode::FormatError,
             2 => DnsHeaderRcode::ServerFailure,
             3 => DnsHeaderRcode::NameError,
             4 => DnsHeaderRcode::NotImplemented,
             5 => DnsHeaderRcode::Refused,
-            _ => panic!("Invalid RCODE value"),
+            value => panic!("Invalid RCODE value: {}", value),
         }
     }
 }
 
 // DNS Header
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DnsHeader {
     // 16-bit identifier assigned by the program that generates the query
     pub id: u16,
