@@ -10,12 +10,38 @@ pub enum DnsType {
     PTR = 12,
 }
 
+impl From<u16> for DnsType {
+    fn from(value: u16) -> Self {
+        match value {
+            1 => DnsType::A,
+            2 => DnsType::NS,
+            5 => DnsType::CNAME,
+            6 => DnsType::SOA,
+            11 => DnsType::WKS,
+            12 => DnsType::PTR,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum DnsClass {
     IN = 1,
     CS = 2,
     CH = 3,
     HS = 4,
+}
+
+impl From<u16> for DnsClass {
+    fn from(value: u16) -> Self {
+        match value {
+            1 => DnsClass::IN,
+            2 => DnsClass::CS,
+            3 => DnsClass::CH,
+            4 => DnsClass::HS,
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

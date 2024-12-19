@@ -3,7 +3,7 @@ use std::net::UdpSocket;
 
 use bytes::BytesMut;
 use codecrafters_dns_server::dns::{
-    answer::*, common::*, header::*, message::DnsMessage, question::*
+    answer::*, common::*, header::*, message::DnsMessage, question::{self, *}
 };
 
 fn main() {
@@ -36,13 +36,13 @@ fn main() {
                 };
 
                 let question = DnsQuestion::new(
-                    "codecrafters.io",
+                    received_message.questions[0].name.0.as_str(),
                     DnsType::A,
                     DnsClass::IN,
                 );
 
                 let answer = DnsAnswer::new(
-                    "codecrafters.io",
+                    received_message.questions[0].name.0.as_str(),
                     DnsType::A,
                     DnsClass::IN,
                     60,

@@ -16,10 +16,13 @@ pub struct DnsMessage {
 
 impl From<[u8; 512]> for DnsMessage {
     fn from(data: [u8; 512]) -> Self {
+        let question = DnsQuestion::from(&data[12..]);
+        let answer = DnsAnswer::from(&data[12..]);
+
         Self {
             header: DnsHeader::from(&data[0..12]),
-            questions: Vec::new(),
-            answers: Vec::new(),
+            questions: vec![question],
+            answers: vec![answer],
             authorities: Vec::new(),
             additional: Vec::new(),
         }
