@@ -1,4 +1,5 @@
 
+#[derive(Debug)]
 pub struct DnsAdditional {
     name: String,
     qtype: u16,

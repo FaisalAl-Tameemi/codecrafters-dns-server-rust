@@ -1,69 +1,70 @@
 #[allow(unused_imports)]
 use std::net::UdpSocket;
 
-use bytes::BytesMut;
-use codecrafters_dns_server::dns::{
-    answer::*, header::*, message::DnsMessage
-};
+use clap::Parser;
+use codecrafters_dns_server::dns::{answer::DnsAnswer, message::DnsMessage};
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(long, default_value = "")]
+    resolver: String,
+}
+
+fn resolve_dns_msg(
+    udp_socket: &UdpSocket,
+    upstream_addr: &String,
+    dns_message: DnsMessage,
+) -> DnsMessage {
+    let upstream_replies = dns_message
+        .questions
+        .iter()
+        .map(|question| {
+            let mut header = dns_message.header.clone();
+            header.question_count = 1;
+            header.answer_count = 0;
+            let msg = DnsMessage {
+                header,
+                questions: vec![question.clone()],
+                answers: vec![],
+                authorities: vec![],
+                additional: vec![],
+            };
+            
+            udp_socket
+                .send_to(&msg.as_buf(), upstream_addr)
+                .expect("Failed to send request upstream");
+            
+            let mut forward_buf = [0; 512];
+            udp_socket
+                .recv_from(&mut forward_buf)
+                .expect("Failed to receive response from upstream");
+
+            return DnsMessage::from(forward_buf);
+        })
+        .collect();
+
+    return DnsMessage::merge(upstream_replies);
+}
 
 fn main() {
+    let args = Args::parse();
     let udp_socket = UdpSocket::bind("127.0.0.1:2053").expect("Failed to bind to address");
     let mut buf = [0; 512];
+    let resolver = args.resolver;
     
     loop {
         match udp_socket.recv_from(&mut buf) {
-            Ok((size, source)) => {
-                println!("Received {} bytes from {}: {:?}", size, source, buf.clone());
+            Ok((_, source)) => {
+                // parse stuff
                 let received_message = DnsMessage::from(buf);
-
-                let answers: Vec<DnsAnswer> = received_message.questions.iter().map(|question| {
-                    DnsAnswer::new(
-                        &question.name.name,
-                        question.qtype,
-                        question.qclass,
-                        60,
-                        vec![8, 8, 8, 8],
-                    )
-                }).collect();
-
-                let header = DnsHeader {
-                    id: received_message.header.id,
-                    query_response: DnsHeaderQR::Reply,
-                    opcode: received_message.header.opcode,
-                    authoritative_answer: DnsHeaderAA::NonAuthoritative,
-                    truncation: DnsHeaderTC::NotTruncated,
-                    recursion_desired: received_message.header.recursion_desired,
-                    recursion_available: DnsHeaderRA::RecursionAvailable,
-                    z: DnsHeaderZ::Reserved,
-                    rcode: match received_message.header.opcode {
-                        DnsHeaderOpcode::Query => DnsHeaderRcode::NoError,
-                        _ => DnsHeaderRcode::NotImplemented,
-                    },
-                    question_count: received_message.questions.len() as u16,
-                    answer_count: answers.len() as u16,
-                    authority_count: 0,
-                    additional_count: 0,
-                };
-
-                let response = {
-                    let mut response: BytesMut = BytesMut::with_capacity(512);
-
-                    let header_buf = header.as_buf();
-                    response.extend(header_buf);
-
-                    received_message.questions.iter().for_each(|question| {
-                        response.extend(question.as_buf());
-                    });
-
-                    answers.iter().for_each(|answer| {
-                        response.extend(answer.as_buf());
-                    });
-
-                    response
-                };
-
+                
+                let response =
+                    resolve_dns_msg(&udp_socket, &resolver, received_message);
+                
                 udp_socket
-                    .send_to(&response, source)
+                    .send_to(&response.as_buf(), source)
                     .expect("Failed to send response");
             }
             Err(e) => {

@@ -59,9 +59,14 @@ impl From<&[u8]> for DnsAnswer {
             name: DnsName::new(name_parts.join(".")),
             qtype: DnsType::from(u16::from_be_bytes([data[to_skip], data[to_skip + 1]])),
             qclass: DnsClass::from(u16::from_be_bytes([data[to_skip + 2], data[to_skip + 3]])),
-            ttl: 60,
+            ttl: u32::from_be_bytes([data[to_skip + 4], data[to_skip + 5], data[to_skip + 6], data[to_skip + 7]]),
             length: 4,
-            data: vec![8,8,8,8],
+            data: vec![
+                data[to_skip + 10],
+                data[to_skip + 11],
+                data[to_skip + 12],
+                data[to_skip + 13],
+            ],
         }
     }
 }

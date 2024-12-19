@@ -26,6 +26,7 @@ pub enum DnsHeaderOpcode {
     Status = 2,
     Notify = 3,
     Update = 4,
+    Dnssec = 5,
 }
 
 impl From<u8> for DnsHeaderOpcode {
@@ -36,6 +37,7 @@ impl From<u8> for DnsHeaderOpcode {
             2 => DnsHeaderOpcode::Status,
             3 => DnsHeaderOpcode::Notify,
             4 => DnsHeaderOpcode::Update,
+            5 => DnsHeaderOpcode::Dnssec,
             value => panic!("Invalid OPCODE value: {}", value),
         }
     }
@@ -146,7 +148,7 @@ impl From<u8> for DnsHeaderRcode {
 }
 
 // DNS Header
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DnsHeader {
     // 16-bit identifier assigned by the program that generates the query
     pub id: u16,
