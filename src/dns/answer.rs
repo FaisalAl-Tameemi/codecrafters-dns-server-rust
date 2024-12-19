@@ -16,7 +16,7 @@ pub struct DnsAnswer {
 
 impl DnsAnswer {
     pub fn new(name: &str, qtype: DnsType, qclass: DnsClass, ttl: u32, data: Vec<u8>) -> Self {
-        Self { name: DnsName(name.to_string()), qtype, qclass, ttl, length: data.len(), data }
+        Self { name: DnsName::new(name.to_string()), qtype, qclass, ttl, length: data.len(), data }
     }
 
     pub fn as_buf(&self) -> BytesMut {
@@ -56,7 +56,7 @@ impl From<&[u8]> for DnsAnswer {
         }
 
         Self {
-            name: DnsName(name_parts.join(".")),
+            name: DnsName::new(name_parts.join(".")),
             qtype: DnsType::from(u16::from_be_bytes([data[to_skip], data[to_skip + 1]])),
             qclass: DnsClass::from(u16::from_be_bytes([data[to_skip + 2], data[to_skip + 3]])),
             ttl: 60,

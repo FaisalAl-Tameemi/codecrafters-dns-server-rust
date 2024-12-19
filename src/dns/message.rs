@@ -16,15 +16,25 @@ pub struct DnsMessage {
 
 impl From<[u8; 512]> for DnsMessage {
     fn from(data: [u8; 512]) -> Self {
-        let question = DnsQuestion::from(&data[12..]);
-        let answer = DnsAnswer::from(&data[12..]);
+        let header = DnsHeader::from(&data[0..12]);
+        let mut questions = vec![];
+        let mut next_question_skip: usize = 12;
+        let answers = vec![];
+        let authorities = vec![];
+        let additional = vec![];
+
+        for _ in 0..header.question_count {
+            let question = DnsQuestion::from_buf(&data, next_question_skip);
+            next_question_skip += question.length;
+            questions.push(question);
+        }
 
         Self {
-            header: DnsHeader::from(&data[0..12]),
-            questions: vec![question],
-            answers: vec![answer],
-            authorities: Vec::new(),
-            additional: Vec::new(),
+            header,
+            questions,
+            answers,
+            authorities,
+            additional,
         }
     }
 }

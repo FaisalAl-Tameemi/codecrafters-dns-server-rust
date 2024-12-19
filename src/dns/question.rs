@@ -1,20 +1,26 @@
-use std::str;
+use std::{ops::BitAnd, str};
 
+use bit::BitIndex;
 use bytes::{BufMut, BytesMut};
 
-use super::common::{DnsName, DnsType, DnsClass};
+use super::common::{DnsClass, DnsName, DnsType};
 
 #[derive(Debug, Clone)]
 pub struct DnsQuestion {
     pub name: DnsName, // encoded as \x07example\x02com\x00
     pub qtype: DnsType,
     pub qclass: DnsClass,
-    pub _length: usize,
+    pub length: usize,
 }
 
 impl DnsQuestion {
     pub fn new(name: &str, qtype: DnsType, qclass: DnsClass) -> Self {
-        Self { name: DnsName(name.to_string()), qtype, qclass, _length: 0 }
+        Self {
+            name: DnsName::new(name.to_string()),
+            qtype,
+            qclass,
+            length: 0,
+        }
     }
 
     pub fn as_buf(&self) -> BytesMut {
@@ -25,37 +31,31 @@ impl DnsQuestion {
         buf.put_u16(self.qclass.clone() as u16);
         buf
     }
-}
 
-impl From<&[u8]> for DnsQuestion {
-    fn from(data: &[u8]) -> Self {
-        let mut name_parts: Vec<&str> = vec![];
-        let mut to_skip = 0;
-        let mut has_next_part = true;
-        
-        while has_next_part {
-            let part_length = data[to_skip];
-            let part = &data[to_skip + 1..to_skip + 1 + part_length as usize];
-            let name_part = str::from_utf8(part).unwrap();
+    pub fn from_buf(data: &[u8; 512], start_index: usize) -> Self {
+        let name = DnsName::read(&data[start_index..]);
+        let name_length = name.length;
+        let mut skip = start_index + name_length;
 
-            name_parts.push(name_part);
-            
-            match data[to_skip + part_length as usize + 1] {
-                0 => {
-                    has_next_part = false;
-                    to_skip += part_length as usize + 2;
-                },
-                _ => {
-                    to_skip += part_length as usize + 1;
-                }
+        // there's a name pointer, read it and resolve
+        if let Some(offset) = name.offset {
+            let name_completion = DnsName::read(&data[offset..]);
+            skip += 2;
+
+            return Self {
+                name: DnsName::new(format!("{}.{}", name.name, name_completion.name)),
+                qtype: DnsType::from(u16::from_be_bytes([data[skip], data[skip + 1]])),
+                qclass: DnsClass::from(u16::from_be_bytes([data[skip + 2], data[skip + 3]])),
+                length: name_length + 6,
             }
         }
-        
+
+        // no name pointer, just resolve
         Self {
-            name: DnsName(name_parts.join(".")),
-            qtype: DnsType::from(u16::from_be_bytes([data[to_skip], data[to_skip + 1]])),
-            qclass: DnsClass::from(u16::from_be_bytes([data[to_skip + 2], data[to_skip + 3]])),
-            _length: to_skip,
+            name,
+            qtype: DnsType::from(u16::from_be_bytes([data[skip], data[skip + 1]])),
+            qclass: DnsClass::from(u16::from_be_bytes([data[skip + 2], data[skip + 3]])),
+            length: name_length + 4,
         }
     }
 }

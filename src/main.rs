@@ -16,6 +16,16 @@ fn main() {
                 println!("Received {} bytes from {}: {:?}", size, source, buf.clone());
                 let received_message = DnsMessage::from(buf);
 
+                let answers: Vec<DnsAnswer> = received_message.questions.iter().map(|question| {
+                    DnsAnswer::new(
+                        &question.name.name,
+                        question.qtype,
+                        question.qclass,
+                        60,
+                        vec![8, 8, 8, 8],
+                    )
+                }).collect();
+
                 let header = DnsHeader {
                     id: received_message.header.id,
                     query_response: DnsHeaderQR::Reply,
@@ -29,25 +39,11 @@ fn main() {
                         DnsHeaderOpcode::Query => DnsHeaderRcode::NoError,
                         _ => DnsHeaderRcode::NotImplemented,
                     },
-                    question_count: 1,
-                    answer_count: 1,
+                    question_count: received_message.questions.len() as u16,
+                    answer_count: answers.len() as u16,
                     authority_count: 0,
                     additional_count: 0,
                 };
-
-                let question = DnsQuestion::new(
-                    received_message.questions[0].name.0.as_str(),
-                    DnsType::A,
-                    DnsClass::IN,
-                );
-
-                let answer = DnsAnswer::new(
-                    received_message.questions[0].name.0.as_str(),
-                    DnsType::A,
-                    DnsClass::IN,
-                    60,
-                    vec![8, 8, 8, 8],
-                );
 
                 let response = {
                     let mut response: BytesMut = BytesMut::with_capacity(512);
@@ -55,11 +51,13 @@ fn main() {
                     let header_buf = header.as_buf();
                     response.extend(header_buf);
 
-                    let question_buf = question.as_buf();
-                    response.extend(question_buf);
+                    received_message.questions.iter().for_each(|question| {
+                        response.extend(question.as_buf());
+                    });
 
-                    let answer_buf = answer.as_buf();
-                    response.extend(answer_buf);
+                    answers.iter().for_each(|answer| {
+                        response.extend(answer.as_buf());
+                    });
 
                     response
                 };
