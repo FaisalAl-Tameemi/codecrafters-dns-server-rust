@@ -3,7 +3,7 @@ use std::net::UdpSocket;
 
 use bytes::BytesMut;
 use codecrafters_dns_server::dns::{
-    answer::*, common::*, header::*, message::DnsMessage, question::{self, *}
+    answer::*, header::*, message::DnsMessage
 };
 
 fn main() {
